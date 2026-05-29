@@ -1,73 +1,12 @@
-# vue-project
+# 🎮 NEON SNAKE 霓虹貪食蛇
 
-This template should help get you started developing with Vue 3 in Vite.
+這是一款街機風格貪食蛇遊戲。視覺上採用高飽和度的霓虹Cyber Punk特效，搭配經典的青蛙(仿蛇頭)與Emoji元素，打造出極具視覺衝擊力的現代網格遊戲畫面。
 
-## Recommended IDE Setup
+### 🌟 核心特色
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+* **瞬時衝刺**：支援長按同方向鍵進入極速突進狀態，鎖定 $60\text{ms}$ 的響應極限，體驗前所未有的流暢操作。
+* **首尾對調技能**：按下空白鍵即可施展核心特技，瞬間將蛇頭與蛇尾對調並逆向行駛，在危急時刻扭轉乾坤。
+* **動態難度與智慧安全區**：隨著蛇身增長，場上蘋果與炸彈數量會動態增減；炸彈備有隨機重新定位與周圍 $5 \times 5$ 的絕對安全區機制，兼顧挑戰性與公平性。
+* **效能優化**：全場地圖採用一維陣列快取（$20 \times 20$ 共 400 格）進行狀態渲染，確保在高速移動與密集碰撞判定下，依然保持零延遲的網格動態融合。
 
-## Recommended Browser Setup
-
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
-npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
-```
-
-### Type-Check, Compile and Minify for Production
-
-```sh
-npm run build
-```
-
-### Run Unit Tests with [Vitest](https://vitest.dev/)
-
-```sh
-npm run test:unit
-```
-
-### Run End-to-End Tests with [Playwright](https://playwright.dev)
-
-```sh
-# Install browsers for the first run
-npx playwright install
-
-# When testing on CI, must build the project first
-npm run build
-
-# Runs the end-to-end tests
-npm run test:e2e
-# Runs the tests only on Chromium
-npm run test:e2e -- --project=chromium
-# Runs the tests of a specific file
-npm run test:e2e -- tests/example.spec.ts
-# Runs the tests in debug mode
-npm run test:e2e -- --debug
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-npm run lint
-```
+當蛇身填滿整個畫面時，即可解鎖終極的黃金勝利畫面，挑戰你的操作極限！

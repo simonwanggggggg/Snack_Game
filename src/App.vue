@@ -4,7 +4,7 @@ import { ref, onMounted, onUnmounted, watch } from 'vue';
 // --- 配置區 ---
 const GRID_SIZE = 20;       
 const INITIAL_SPEED = 250; 
-const SPEED_STEP = 5;     
+const SPEED_STEP = 5;      
 const MIN_SPEED = 150;      
 const TOTAL_CELLS = GRID_SIZE * GRID_SIZE; 
 
@@ -211,7 +211,7 @@ const move = () => {
 const gameTickHandler = () => {
     if (gameState.value !== 'PLAYING') return;
 
-    // 🟢 衝刺速度限制：最高速度 150ms 的 2.5 倍速（最快 60ms 一格）
+    // 衝刺速度限制：最高速度 150ms 的 2.5 倍速（最快 60ms 一格）
     const requiredInterval = isBoosting.value 
         ? Math.max(currentSpeed.value * 0.5, MIN_SPEED / 2.5) 
         : currentSpeed.value;
@@ -371,12 +371,14 @@ onUnmounted(() => {
 <template>
   <div class="main-wrapper">
     
+    <!-- 遊戲名稱 -->
     <div class="screen-title-abs">
-      <h1>貪食蛇遊戲</h1>
+      <h1>NEON SNAKE</h1>
     </div>
 
-    <div class="screen-score-box-abs">
-      <div class="score-label">目前得分</div>
+    <!-- 街機霓虹化得分格 -->
+    <div class="screen-score-box-abs neon-score-box">
+      <div class="score-label">SCORE</div>
       <div class="score-value">{{ score }}</div>
     </div>
 
@@ -406,53 +408,61 @@ onUnmounted(() => {
               <div v-else-if="type === 'BOMB'" class="bomb-emoji">💣</div>
             </div>
 
-            <div v-if="gameState === 'NOT_STARTED' || gameState === 'PAUSED'" class="game-overlay-panel">
-              <div class="overlay-title">
-                {{ gameState === 'NOT_STARTED' ? '準備好了嗎？' : '遊戲暫停' }}
+            <!-- 開始/暫停畫面 -->
+            <div v-if="gameState === 'NOT_STARTED' || gameState === 'PAUSED'" class="game-overlay-panel neon-overlay">
+              <div class="overlay-title neon-text-green">
+                NEON SNAKE
               </div>
               <div class="btn-group-vertical">
-                <button class="start-btn" @click="startGame">
-                  {{ gameState === 'PAUSED' ? '重新開始' : '開始遊戲' }}
+                <button class="start-btn neon-btn-green" @click="startGame">
+                  {{ gameState === 'PAUSED' ? 'RESUME GAME' : 'START GAME' }}
                 </button>
-                <button class="rules-btn" @click="showRules = true">遊戲玩法</button>
+                <button class="rules-btn neon-btn-orange" @click="showRules = true">HOW TO PLAY</button>
               </div>
-              <div class="pause-hint-text">
-                [ 按下 <span class="key-highlight">Space</span> 或 <span class="key-highlight">Enter</span> 即可開始遊戲 ]
+              <div class="pause-hint-text neon-hint">
+                PRESS <span class="key-highlight-green">SPACE</span> OR <span class="key-highlight-green">ENTER</span> TO PLAY
               </div>
             </div>
 
+            <!-- 結束畫面 -->
             <div v-else-if="gameState === 'GAME_OVER'" class="game-overlay-panel game-over-bg">
-              <div class="overlay-title game-over-title">💥 遊戲結束 💥</div>
-              <div class="final-score-box">
-                <div class="final-label">最終得分</div>
+              <div class="overlay-title game-over-title">💥 GAME OVER 💥</div>
+              
+              <div class="final-score-box neon-final-score-box">
+                <div class="final-label">FINAL SCORE</div>
                 <div class="final-value">{{ score }}</div>
               </div>
+              
               <div class="btn-group-vertical">
-                <button class="start-btn restart-theme" @click="startGame">再試一次</button>
-                <button class="rules-btn" @click="showRules = true">遊戲玩法</button>
+                <button class="start-btn restart-theme" @click="startGame">TRY AGAIN</button>
+                <button class="rules-btn neon-btn-white" @click="showRules = true">HOW TO PLAY</button>
               </div>
               <div class="pause-hint-text">
-                [ 按下 <span class="key-highlight">Space</span> 或 <span class="key-highlight">Enter</span> 可重新開始 ]
+                [ PRESS <span class="key-highlight">SPACE</span> OR <span class="key-highlight">ENTER</span> TO RESTART ]
               </div>
             </div>
 
-            <div v-else-if="gameState === 'VICTORY'" class="game-overlay-panel victory-bg">
-              <div class="overlay-title victory-title">👑 恭喜完美通關 👑</div>
-              <div class="final-score-box victory-score-box">
-                <div class="final-label" style="color: #6d4c41;">最高紀錄</div>
-                <div class="final-value" style="color: #b71c1c;">{{ score }}</div>
+            <!-- 🟢 完美重構：黃金賽博霓虹風格的勝利畫面 -->
+            <div v-else-if="gameState === 'VICTORY'" class="game-overlay-panel victory-neon-bg">
+              <div class="overlay-title victory-neon-title">👑 VICTORY 👑</div>
+              
+              <div class="final-score-box neon-victory-score-box">
+                <div class="final-label">HIGH SCORE</div>
+                <div class="final-value">{{ score }}</div>
               </div>
+              
               <div class="btn-group-vertical">
-                <button class="start-btn victory-btn" @click="startGame">再挑戰一次</button>
-                <button class="rules-btn" @click="showRules = true">遊戲玩法</button>
+                <button class="start-btn neon-btn-gold" @click="startGame">PLAY AGAIN</button>
+                <button class="rules-btn neon-btn-white" @click="showRules = true">HOW TO PLAY</button>
               </div>
-              <div class="pause-hint-text" style="color: #5d4037;">
-                [ 按下 <span class="key-highlight" style="color: #b71c1c;">Space</span> 或 <span class="key-highlight" style="color: #b71c1c;">Enter</span> 重新開啟遊戲 ]
+              <div class="pause-hint-text victory-hint">
+                [ PRESS <span class="key-highlight-gold">SPACE</span> OR <span class="key-highlight-gold">ENTER</span> TO RESTART ]
               </div>
             </div>
         </div>
     </div>
 
+    <!-- 保持中文說明的規則彈窗 -->
     <div v-if="showRules" class="modal-overlay" @click.self="showRules = false">
       <div class="modal-content">
         <h2>🎮 遊戲玩法說明</h2>
@@ -491,9 +501,44 @@ onUnmounted(() => {
 }
 .screen-title-abs { position: fixed; top: 25px; left: 30px; z-index: 100; }
 .screen-title-abs h1 { margin: 0; color: #2e7d32; letter-spacing: 2px; font-size: 2.2rem; }
-.screen-score-box-abs { position: fixed; top: 25px; right: 30px; background-color: #ffffff; border: 3px solid #333; border-radius: 6px; padding: 8px 20px; text-align: center; min-width: 90px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); z-index: 100; }
-.score-label { font-size: 0.75rem; font-weight: 900; color: #888; letter-spacing: 1px; margin-bottom: 2px; }
-.score-value { font-size: 1.6rem; font-weight: bold; color: #222; font-family: monospace; }
+
+/* 街機霓虹化得分格 (頂部 HUD) */
+.screen-score-box-abs { 
+  position: fixed; 
+  top: 25px; 
+  right: 30px; 
+  background-color: #000000; 
+  border: 2px solid #39ff14; 
+  border-radius: 6px; 
+  padding: 8px 20px; 
+  text-align: center; 
+  min-width: 90px; 
+  box-shadow: 0 0 15px rgba(57, 255, 20, 0.3); 
+  z-index: 100; 
+  animation: score-box-pulse 3s infinite ease-in-out;
+}
+.score-label { 
+  font-size: 0.75rem; 
+  font-weight: 900; 
+  color: #39ff14; 
+  opacity: 0.8;
+  letter-spacing: 2px; 
+  margin-bottom: 2px; 
+  text-shadow: 0 0 4px rgba(57, 255, 20, 0.5);
+}
+.score-value { 
+  font-size: 1.8rem; 
+  font-weight: bold; 
+  color: #39ff14; 
+  font-family: monospace; 
+  text-shadow: 0 0 8px #39ff14;
+}
+
+@keyframes score-box-pulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(57, 255, 20, 0.2); border-color: rgba(57, 255, 20, 0.8); }
+  50% { box-shadow: 0 0 20px rgba(57, 255, 20, 0.5); border-color: rgba(57, 255, 20, 1); }
+}
+
 .game-container { display: flex; flex-direction: column; align-items: center; }
 
 .game-board {
@@ -518,42 +563,209 @@ onUnmounted(() => {
 
 .cell { width: var(--custom-cell-size); height: var(--custom-cell-size); display: flex; justify-content: center; align-items: center; position: relative; }
 
-.game-overlay-panel { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(30, 30, 30, 0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200; color: white; text-align: center; }
-.game-over-bg { background-color: rgba(25, 15, 15, 0.92); }
+/* 基礎面板配置 */
+.game-overlay-panel { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200; color: white; text-align: center; }
+.game-over-bg { background-color: rgba(5, 5, 5, 0.94); border: 2px solid #ff5252; box-shadow: inset 0 0 30px rgba(255, 82, 82, 0.15); }
 
-.victory-bg { background-color: rgba(255, 215, 0, 0.94); color: #5d4037; }
-.victory-title { color: #b71c1c; font-size: calc(var(--custom-cell-size) * 1.3); text-shadow: 0 2px 4px rgba(255,255,255,0.6); animation: victory-glow 1.5s infinite alternate; }
-.victory-score-box { background-color: rgba(255, 255, 255, 0.6); border: 2px solid #b71c1c; }
+/* 未開始/暫停畫面的純黑霓虹微光背板 */
+.neon-overlay {
+  background-color: rgba(5, 5, 5, 0.90);
+  backdrop-filter: blur(4px);
+  border: 2px solid #39ff14;
+  box-shadow: inset 0 0 30px rgba(57, 255, 20, 0.15);
+}
 
-@keyframes victory-glow {
-  0% { transform: scale(1); }
-  100% { transform: scale(1.05); }
+/* 🟢 新增：勝利畫面的街機純黑發光背板 */
+.victory-neon-bg {
+  background-color: rgba(5, 5, 5, 0.95);
+  backdrop-filter: blur(4px);
+  border: 2px solid #ffd700;
+  box-shadow: inset 0 0 35px rgba(255, 215, 0, 0.2), 0 0 25px rgba(255, 215, 0, 0.1);
+}
+
+/* 霓虹發光字體屬性 */
+.neon-text-green {
+  color: #39ff14 !important;
+  font-family: monospace;
+  font-size: calc(var(--custom-cell-size) * 1.5) !important;
+  letter-spacing: 4px;
+  text-shadow: 0 0 10px #39ff14, 0 0 25px rgba(57,255,20,0.5);
+  animation: text-pulse 2s infinite ease-in-out;
+}
+
+@keyframes text-pulse {
+  0%, 100% { opacity: 1; text-shadow: 0 0 10px #39ff14, 0 0 25px rgba(57,255,20,0.5); }
+  50% { opacity: 0.85; text-shadow: 0 0 6px #39ff14, 0 0 15px rgba(57,255,20,0.3); }
+}
+
+/* 🟢 新增：黃金霓虹通關標題與閃爍動畫 */
+.victory-neon-title { 
+  color: #ffd700 !important; 
+  font-size: calc(var(--custom-cell-size) * 1.4); 
+  font-weight: bold;
+  letter-spacing: 3px;
+  text-shadow: 0 0 12px #ffd700, 0 0 25px rgba(255, 215, 0, 0.6); 
+  animation: victory-neon-pulse 1.8s infinite alternate;
+  margin-bottom: 25px;
+}
+
+@keyframes victory-neon-pulse {
+  0% { transform: scale(1); text-shadow: 0 0 10px #ffd700, 0 0 20px rgba(255, 215, 0, 0.5); }
+  100% { transform: scale(1.04); text-shadow: 0 0 16px #ffd700, 0 0 35px rgba(255, 215, 0, 0.8), 0 0 4px #ffffff; }
 }
 
 .overlay-title { font-size: calc(var(--custom-cell-size) * 1.2); font-weight: bold; letter-spacing: 1px; color: #81c784; margin-bottom: 25px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
-.game-over-title { color: #ff5252; font-size: calc(var(--custom-cell-size) * 1.4); }
-.final-score-box { background-color: rgba(250, 250, 250, 0.08); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 6px; padding: 8px calc(var(--custom-cell-size) * 1.5); margin-bottom: 25px; text-align: center; }
-.final-label { font-size: calc(var(--custom-cell-size) * 0.45); color: #ccc; font-weight: bold; letter-spacing: 1px; margin-bottom: 4px; }
-.final-value { font-size: calc(var(--custom-cell-size) * 1.4); font-weight: 900; color: #ffd54f; font-family: monospace; line-height: 1; }
-.btn-group-vertical { display: flex; flex-direction: column; gap: 12px; width: calc(var(--custom-cell-size) * 7); }
+.game-over-title { color: #ff5252; font-size: calc(var(--custom-cell-size) * 1.4); text-shadow: 0 0 10px #ff5252; }
 
-/* 按鈕樣式 */
-.start-btn { padding: calc(var(--custom-cell-size) * 0.35) 0; font-size: calc(var(--custom-cell-size) * 0.65); font-weight: bold; cursor: pointer; background-color: #007bff; color: white; border: 2px solid #ffffff; border-radius: 4px; box-shadow: none; transition: background-color 0.15s ease; }
-.start-btn:hover { background-color: #0069d9; }
-.start-btn:active { background-color: #0056b3; }
-.restart-theme { background-color: #ff7043; border: 2px solid #ffffff; box-shadow: none; transition: background-color 0.15s ease; }
-.restart-theme:hover { background-color: #f4511e; }
-.restart-theme:active { background-color: #d84315; }
+/* 死亡畫面最終得分格 */
+.neon-final-score-box {
+  background-color: #000000 !important;
+  border: 2px solid #ff5252 !important;
+  border-radius: 6px;
+  padding: 10px calc(var(--custom-cell-size) * 1.8);
+  margin-bottom: 25px;
+  text-align: center;
+  box-shadow: 0 0 20px rgba(255, 82, 82, 0.4);
+}
+.neon-final-score-box .final-label {
+  font-size: calc(var(--custom-cell-size) * 0.45);
+  color: #ff8a8a;
+  font-weight: bold;
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+.neon-final-score-box .final-value {
+  font-size: calc(var(--custom-cell-size) * 1.5);
+  font-weight: 900;
+  color: #ffd54f;
+  font-family: monospace;
+  line-height: 1;
+  text-shadow: 0 0 12px #ffd54f, 0 0 4px #ff5252;
+}
 
-.victory-btn { background-color: #b71c1c; }
-.victory-btn:hover { background-color: #7f0000; }
-.victory-btn:active { background-color: #4c0000; }
+/* 🟢 新增：勝利畫面黃金得分格 */
+.neon-victory-score-box {
+  background-color: #000000 !important;
+  border: 2px solid #ffd700 !important;
+  border-radius: 6px;
+  padding: 10px calc(var(--custom-cell-size) * 1.8);
+  margin-bottom: 25px;
+  text-align: center;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+}
+.neon-victory-score-box .final-label {
+  font-size: calc(var(--custom-cell-size) * 0.45);
+  color: #ffeaa7;
+  font-weight: bold;
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+.neon-victory-score-box .final-value {
+  font-size: calc(var(--custom-cell-size) * 1.5);
+  font-weight: 900;
+  color: #ffd700;
+  font-family: monospace;
+  line-height: 1;
+  text-shadow: 0 0 12px #ffd700, 0 0 4px rgba(255, 215, 0, 0.5);
+}
 
-.rules-btn { padding: calc(var(--custom-cell-size) * 0.35) 0; font-size: calc(var(--custom-cell-size) * 0.65); font-weight: bold; cursor: pointer; background-color: #6c757d; color: white; border: 2px solid #ffffff; border-radius: 4px; transition: background-color 0.15s ease; }
-.rules-btn:hover { background-color: #5a6268; }
-.rules-btn:active { background-color: #434a50; }
-.pause-hint-text { margin-top: 25px; font-size: calc(var(--custom-cell-size) * 0.45); color: #aaa; }
-.key-highlight { color: #ffb74d; font-weight: bold; }
+.btn-group-vertical { display: flex; flex-direction: column; gap: 14px; width: calc(var(--custom-cell-size) * 8); }
+
+/* ==========================================
+   街機霓虹按鈕樣式區
+   ========================================== */
+.start-btn, .rules-btn, .restart-theme {
+  padding: calc(var(--custom-cell-size) * 0.38) 0;
+  font-size: calc(var(--custom-cell-size) * 0.58);
+  font-family: monospace;
+  font-weight: 900;
+  cursor: pointer;
+  background-color: #050505;
+  border-radius: 4px;
+  transition: all 0.15s ease-in-out;
+  box-shadow: none;
+  letter-spacing: 1px;
+}
+
+/* 綠色霓虹按鈕 (START / RESUME) */
+.neon-btn-green {
+  color: #39ff14;
+  border: 2px solid #39ff14;
+  box-shadow: 0 0 8px rgba(57, 255, 20, 0.2);
+}
+.neon-btn-green:hover {
+  background-color: #39ff14;
+  color: #000000;
+  box-shadow: 0 0 18px #39ff14;
+}
+.neon-btn-green:active {
+  transform: scale(0.96);
+}
+
+/* 橘色霓虹按鈕 (HOW TO PLAY - 開始畫面) */
+.neon-btn-orange {
+  color: #ff9f00;
+  border: 2px solid #ff9f00;
+  box-shadow: 0 0 8px rgba(255, 159, 0, 0.2);
+}
+.neon-btn-orange:hover {
+  background-color: #ff9f00;
+  color: #000000;
+  box-shadow: 0 0 18px #ff9f00;
+}
+.neon-btn-orange:active {
+  transform: scale(0.96);
+}
+
+/* 黑底白字白色霓虹按鈕 (HOW TO PLAY - 死亡/勝利畫面共用) */
+.neon-btn-white {
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
+}
+.neon-btn-white:hover {
+  background-color: #ffffff;
+  color: #000000;
+  box-shadow: 0 0 18px #ffffff;
+}
+.neon-btn-white:active {
+  transform: scale(0.96);
+}
+
+/* 🟢 新增：金色霓虹按鈕 (PLAY AGAIN - 勝利畫面專用) */
+.neon-btn-gold {
+  color: #ffd700;
+  border: 2px solid #ffd700;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.2);
+}
+.neon-btn-gold:hover {
+  background-color: #ffd700;
+  color: #000000;
+  box-shadow: 0 0 20px #ffd700;
+}
+.neon-btn-gold:active {
+  transform: scale(0.96);
+}
+
+/* 死亡畫面按鈕優化 */
+.restart-theme {
+  color: #ff5252;
+  border: 2px solid #ff5252;
+  box-shadow: 0 0 8px rgba(255, 82, 82, 0.2);
+}
+.restart-theme:hover {
+  background-color: #ff5252;
+  color: white;
+  box-shadow: 0 0 18px #ff5252;
+}
+
+/* 提示文字優化 */
+.pause-hint-text { margin-top: 25px; font-size: calc(var(--custom-cell-size) * 0.42); color: #666; font-family: monospace; }
+.neon-hint { color: #888; letter-spacing: 1px; }
+.victory-hint { color: #888; }
+.key-highlight-green { color: #39ff14; font-weight: bold; text-shadow: 0 0 5px rgba(57,255,20,0.5); }
+.key-highlight { color: #ff5252; font-weight: bold; }
+.key-highlight-gold { color: #ffd700; font-weight: bold; text-shadow: 0 0 5px rgba(255,215,0,0.4); }
 
 /* ==========================================
    蛇身與青蛙頭：完美網格霓虹融合版
@@ -562,7 +774,7 @@ onUnmounted(() => {
   width: 112%; 
   height: 112%; 
   background-color: #39ff14; 
-  border-radius: 50%;        
+  border-radius: 50%;         
   box-shadow: 0 0 10px #39ff14, 0 0 20px rgba(57, 255, 20, 0.5); 
   transition: opacity 0.15s ease-in-out;
   animation: snake-pulse 2.2s infinite ease-in-out; 
@@ -598,12 +810,10 @@ onUnmounted(() => {
   transition: filter 0.2s ease;
 }
 
-/* ⚡ 蛇頭衝刺發光加強 */
 .neon-black-board-boosting .frog-head {
   filter: drop-shadow(0 0 10px #39ff14) drop-shadow(0 0 20px #39ff14) drop-shadow(0 0 30px #ffffff);
 }
 
-/* 蛇舌頭 */
 .frog-head::after {
   content: '';
   position: absolute;
@@ -624,14 +834,13 @@ onUnmounted(() => {
   100% { height: 9px; bottom: -6px; }
 }
 
-/* 青蛙頭專用旋轉與上移複合樣式 */
 .frog-dir-up    { transform: rotate(180deg) translateY(calc(var(--custom-cell-size) * -0.10)); }
 .frog-dir-down  { transform: rotate(0deg) translateY(calc(var(--custom-cell-size) * -0.10)); }
 .frog-dir-left  { transform: rotate(90deg) translateY(calc(var(--custom-cell-size) * -0.10)); }
 .frog-dir-right { transform: rotate(-90deg) translateY(calc(var(--custom-cell-size) * -0.10)); }
 
 /* ==========================================
-   食物、炸彈發光特效區 (精確貼合 Emoji 輪廓)
+   食物、炸彈發光特效區
    ========================================== */
 .food-emoji { 
   font-size: calc(var(--custom-cell-size) * 0.7); 
