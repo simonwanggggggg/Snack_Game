@@ -8,6 +8,7 @@ const SPEED_STEP = 5;
 const MIN_SPEED = 150;      
 const TOTAL_CELLS = GRID_SIZE * GRID_SIZE; 
 
+// 【動態測試開關】測試完勝利畫面後，請把這個數字 5 改回 400 即可正式上線！
 const DEBUG_VICTORY_LENGTH = 400; 
 // ------------
 
@@ -28,49 +29,35 @@ const currentSpeed = ref(INITIAL_SPEED);
 const showRules = ref(false);
 const gameState = ref('NOT_STARTED');
 
-// 🟢 效能優化核心：一維快取陣列（長度 400），用來替代原本高成本的 getCellType 函式
+// 衝刺與零延遲核心變數
+const isBoosting = ref(false);
+const tickCounter = ref(0); 
+
+// 一維快取陣列（長度 400）
 const boardCache = ref(Array(TOTAL_CELLS).fill('EMPTY'));
 
-// 優化：快速位置檢查（利用快取，不再使用成本高的 snake.value.some）
-const isSnakePosFast = (x, y) => {
-  const index = y * GRID_SIZE + x;
-  const type = boardCache.value[index];
-  return type && (type === 'BODY' || type.startsWith('HEAD_') || type.startsWith('TAIL_'));
-};
-
-// 🟢 效能優化核心：每當物件移動，只在 JS 裡更新一次快取地圖，Template 只讀不算
+// JS 端更新地圖快取
 const updateBoardCache = () => {
   const nextCache = Array(TOTAL_CELLS).fill('EMPTY');
-  
-  // 1. 填入食物
   for (let i = 0; i < foods.value.length; i++) {
-    const f = foods.value[i];
-    nextCache[f.y * GRID_SIZE + f.x] = 'FOOD';
+    nextCache[foods.value[i].y * GRID_SIZE + foods.value[i].x] = 'FOOD';
   }
-  
-  // 2. 填入炸彈
   for (let i = 0; i < bombs.value.length; i++) {
-    const b = bombs.value[i];
-    nextCache[b.y * GRID_SIZE + b.x] = 'BOMB';
+    nextCache[bombs.value[i].y * GRID_SIZE + bombs.value[i].x] = 'BOMB';
   }
-  
-  // 3. 填入蛇身與蛇尾
   const len = snake.value.length;
   for (let i = 1; i < len; i++) {
     const s = snake.value[i];
     const idx = s.y * GRID_SIZE + s.x;
     if (idx >= 0 && idx < TOTAL_CELLS) {
-      nextCache[idx] = (i === len - 1) ? 'TAIL_' + s.dir : 'BODY';
+      nextCache[idx] = (i === len - 1) ? `TAIL_${i}` : `BODY_${i}`;
     }
   }
-  
-  // 4. 填入蛇頭（最上層，覆蓋可能重複的節點）
   const head = snake.value[0];
   const headIdx = head.y * GRID_SIZE + head.x;
   if (headIdx >= 0 && headIdx < TOTAL_CELLS) {
     nextCache[headIdx] = 'HEAD_' + head.dir;
   }
-  
   boardCache.value = nextCache;
 };
 
@@ -90,13 +77,9 @@ const calculateSpeed = () => {
     return Math.max(INITIAL_SPEED - (level * SPEED_STEP), MIN_SPEED);
 };
 
-// 監聽蛇長度變化：簡化定時器重啟，避免高頻率抖動
+// 監聽蛇長度變化
 watch(() => snake.value.length, () => {
-    const newSpeed = calculateSpeed();
-    if (newSpeed !== currentSpeed.value && gameState.value === 'PLAYING') {
-        currentSpeed.value = newSpeed;
-        restartTimer(); 
-    }
+    currentSpeed.value = calculateSpeed();
     
     const targetFoodCount = getTargetFoodCount();
     while (foods.value.length > targetFoodCount) foods.value.pop(); 
@@ -119,14 +102,9 @@ const isInFrogSafeZone = (x, y) => {
 const generateFood = () => {
     if (snake.value.length >= TOTAL_CELLS) return;
     const targetCount = getTargetFoodCount();
-    
     while (foods.value.length < targetCount) {
-        const newFood = {
-            x: Math.floor(Math.random() * GRID_SIZE),
-            y: Math.floor(Math.random() * GRID_SIZE)
-        };
+        const newFood = { x: Math.floor(Math.random() * GRID_SIZE), y: Math.floor(Math.random() * GRID_SIZE) };
         const idx = newFood.y * GRID_SIZE + newFood.x;
-        // 讀取快取判定，省去大量陣列尋找時間
         if (boardCache.value[idx] === 'EMPTY' && !isInFrogSafeZone(newFood.x, newFood.y)) {
             foods.value.push(newFood);
             updateBoardCache();
@@ -138,10 +116,7 @@ const generateFood = () => {
 const generateBombs = () => {
     const targetCount = getTargetBombCount();
     while (bombs.value.length < targetCount) {
-        const newBomb = {
-            x: Math.floor(Math.random() * GRID_SIZE),
-            y: Math.floor(Math.random() * GRID_SIZE)
-        };
+        const newBomb = { x: Math.floor(Math.random() * GRID_SIZE), y: Math.floor(Math.random() * GRID_SIZE) };
         const idx = newBomb.y * GRID_SIZE + newBomb.x;
         if (boardCache.value[idx] === 'EMPTY' && !isInFrogSafeZone(newBomb.x, newBomb.y)) {
             bombs.value.push(newBomb);
@@ -155,15 +130,12 @@ const relocateOneBomb = () => {
     const targetBombCount = getTargetBombCount();
     while (bombs.value.length > targetBombCount) bombs.value.pop();
     if (bombs.value.length === 0) return;
-
     const randomIndex = Math.floor(Math.random() * bombs.value.length);
-    
     let attempts = 0;
     while (attempts < 100) {
         const newX = Math.floor(Math.random() * GRID_SIZE);
         const newY = Math.floor(Math.random() * GRID_SIZE);
         const idx = newY * GRID_SIZE + newX;
-        
         if (boardCache.value[idx] === 'EMPTY' && !isInFrogSafeZone(newX, newY)) {
             bombs.value[randomIndex] = { x: newX, y: newY };
             break;
@@ -172,14 +144,22 @@ const relocateOneBomb = () => {
     }
 };
 
+const getBodyOpacity = (type) => {
+  if (!type.includes('_')) return 1;
+  const partIndex = parseInt(type.split('_')[1]); 
+  const totalLength = snake.value.length;
+  const distanceFromTail = totalLength - 1 - partIndex; 
+  if (distanceFromTail < 5) {
+    return 0.2 + (distanceFromTail * 0.16); 
+  }
+  return 1; 
+};
+
+// 核心移動邏輯
 const move = () => {
     if (gameState.value !== 'PLAYING') return;
 
-    const head = { 
-        x: snake.value[0].x + direction.value.x, 
-        y: snake.value[0].y + direction.value.y,
-        dir: direction.value.dir
-    };
+    const head = { x: snake.value[0].x + direction.value.x, y: snake.value[0].y + direction.value.y, dir: direction.value.dir };
 
     // 判定 1：撞牆
     if (head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE) {
@@ -187,16 +167,15 @@ const move = () => {
         return;
     }
 
-    // 利用快取直接做碰撞碰撞檢査 (效能優化 O(1))
     const targetIdx = head.y * GRID_SIZE + head.x;
     const targetType = boardCache.value[targetIdx];
 
-    // 判定 2：撞到自己（排除即將移動開的尾巴，但若吃到食物尾巴不動則必死）
-    if (targetType === 'BODY' || targetType.startsWith('HEAD_') || (targetType.startsWith('TAIL_') && foods.value.some(f => f.x === head.x && f.y === head.y))) {
+    // 判定 2：自我碰撞
+    if (targetType.startsWith('BODY_') || targetType.startsWith('HEAD_') || 
+       (targetType.startsWith('TAIL_') && foods.value.some(f => f.x === head.x && f.y === head.y))) {
         triggerGameOver();
         return;
     }
-
     // 判定 3：踩到炸彈
     if (targetType === 'BOMB') {
         triggerGameOver();
@@ -209,7 +188,6 @@ const move = () => {
         score.value += 10;
         const foodIndex = foods.value.findIndex(f => f.x === head.x && f.y === head.y);
         if (foodIndex !== -1) foods.value.splice(foodIndex, 1);
-        
         applesEaten.value++;
         
         if (snake.value.length >= DEBUG_VICTORY_LENGTH || snake.value.length === TOTAL_CELLS) {
@@ -217,25 +195,37 @@ const move = () => {
             triggerVictory();
             return;
         }
-
         if (applesEaten.value >= 3) {
             relocateOneBomb();
             applesEaten.value = 0;
         }
-        
         generateFood(); 
         generateBombs(); 
     } else {
         snake.value.pop();
     }
-    
-    // 🟢 移動完畢後，在記憶體中更新一次快取地圖
     updateBoardCache();
+};
+
+// 高頻率心跳時鐘 (每 10 毫秒執行一次)
+const gameTickHandler = () => {
+    if (gameState.value !== 'PLAYING') return;
+
+    // 🟢 衝刺速度限制：最高速度 150ms 的 2.5 倍速（最快 60ms 一格）
+    const requiredInterval = isBoosting.value 
+        ? Math.max(currentSpeed.value * 0.5, MIN_SPEED / 2.5) 
+        : currentSpeed.value;
+        
+    tickCounter.value += 10; 
+
+    if (tickCounter.value >= requiredInterval) {
+        move();
+        tickCounter.value = 0; 
+    }
 };
 
 const reverseSnake = () => {
     if (snake.value.length < 2 || gameState.value !== 'PLAYING') return;
-
     const reversed = [...snake.value].reverse();
     for (let i = 0; i < reversed.length - 1; i++) {
         const current = reversed[i];
@@ -265,78 +255,68 @@ const reverseSnake = () => {
 const togglePause = () => {
     if (gameState.value === 'PLAYING') {
         gameState.value = 'PAUSED';
-        if (gameInterval.value) clearInterval(gameInterval.value);
+        isBoosting.value = false;
     } else if (gameState.value === 'PAUSED') {
         gameState.value = 'PLAYING';
-        restartTimer();
+        tickCounter.value = 0; 
     }
+};
+
+const isKeyMatchingCurrentDirection = (key) => {
+    if (key === 'ArrowUp' && direction.value.dir === 'UP') return true;
+    if (key === 'ArrowDown' && direction.value.dir === 'DOWN') return true;
+    if (key === 'ArrowLeft' && direction.value.dir === 'LEFT') return true;
+    if (key === 'ArrowRight' && direction.value.dir === 'RIGHT') return true;
+    return false;
 };
 
 const handleKey = (e) => {
     if (showRules.value) {
-        if (e.key === 'Escape') {
-            e.preventDefault();
-            showRules.value = false;
-        }
+        if (e.key === 'Escape') { e.preventDefault(); showRules.value = false; }
         return; 
     }
-
     const triggerKeys = ['Space', 'Enter'];
-
     if (gameState.value === 'NOT_STARTED' || gameState.value === 'GAME_OVER' || gameState.value === 'VICTORY') {
-        if (triggerKeys.includes(e.code) || triggerKeys.includes(e.key)) {
-            e.preventDefault();
-            startGame();
-        }
+        if (triggerKeys.includes(e.code) || triggerKeys.includes(e.key)) { e.preventDefault(); startGame(); }
         return; 
     }
-
     if (gameState.value === 'PAUSED') {
-        if (triggerKeys.includes(e.code) || triggerKeys.includes(e.key)) {
-            e.preventDefault();
-            togglePause();
-            return;
-        }
-        
+        if (triggerKeys.includes(e.code) || triggerKeys.includes(e.key)) { e.preventDefault(); togglePause(); return; }
         const directionKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
-        if (directionKeys.includes(e.key)) {
-            e.preventDefault();
-            togglePause();
-        }
+        if (directionKeys.includes(e.key)) { e.preventDefault(); togglePause(); }
     }
+    if (e.key === 'Enter') { e.preventDefault(); togglePause(); return; }
+    if (e.code === 'Space') { e.preventDefault(); reverseSnake(); return; }
 
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        togglePause(); 
-        return;
-    }
-
-    if (e.code === 'Space') {
-        e.preventDefault(); 
-        reverseSnake(); 
-        return;
-    }
-
-    const keys = { 
-        ArrowUp: { x: 0, y: -1, dir: 'UP' }, 
-        ArrowDown: { x: 0, y: 1, dir: 'DOWN' }, 
-        ArrowLeft: { x: -1, y: 0, dir: 'LEFT' }, 
-        ArrowRight: { x: 1, y: 0, dir: 'RIGHT' } 
-    };
-    
+    const keys = { ArrowUp: { x: 0, y: -1, dir: 'UP' }, ArrowDown: { x: 0, y: 1, dir: 'DOWN' }, ArrowLeft: { x: -1, y: 0, dir: 'LEFT' }, ArrowRight: { x: 1, y: 0, dir: 'RIGHT' } };
     const target = keys[e.key];
-    if (target && (target.x !== -direction.value.x || target.y !== -direction.value.y)) {
-        direction.value = target;
+    
+    if (target) {
+        if (target.x !== -direction.value.x || target.y !== -direction.value.y) {
+            if (target.dir === direction.value.dir) {
+                isBoosting.value = true;
+                move();
+                tickCounter.value = 0; 
+            } else {
+                direction.value = target;
+                isBoosting.value = false;
+                move();
+                tickCounter.value = 0; 
+            }
+        }
     }
 };
 
-const restartTimer = () => {
-    if (gameInterval.value) clearInterval(gameInterval.value);
-    gameInterval.value = setInterval(move, currentSpeed.value);
+const handleKeyUp = (e) => {
+    if (gameState.value !== 'PLAYING') return;
+    if (isKeyMatchingCurrentDirection(e.key)) {
+        isBoosting.value = false;
+    }
 };
 
 const startGame = () => {
     if (gameInterval.value) clearInterval(gameInterval.value);
+
     snake.value = [
       { x: 10, y: 10, dir: 'UP' },
       { x: 10, y: 11, dir: 'UP' },
@@ -346,37 +326,45 @@ const startGame = () => {
     score.value = 0;
     applesEaten.value = 0; 
     currentSpeed.value = INITIAL_SPEED;
+    isBoosting.value = false;
+    tickCounter.value = 0;
     foods.value = [];
     bombs.value = []; 
     updateBoardCache();
     generateFood(); 
     generateBombs(); 
     gameState.value = 'PLAYING';
-    restartTimer();
+
+    gameInterval.value = setInterval(gameTickHandler, 10);
 };
 
-const triggerGameOver = () => {
-    stopGame();
+const triggerGameOver = () => { 
+    stopGame(); 
     gameState.value = 'GAME_OVER'; 
 };
 
-const triggerVictory = () => {
-    stopGame();
-    gameState.value = 'VICTORY';
+const triggerVictory = () => { 
+    stopGame(); 
+    gameState.value = 'VICTORY'; 
 };
 
-const stopGame = () => {
-    if (gameInterval.value) clearInterval(gameInterval.value);
-    gameInterval.value = null;
+const stopGame = () => { 
+    isBoosting.value = false; 
+    if (gameInterval.value) {
+        clearInterval(gameInterval.value);
+        gameInterval.value = null; 
+    }
 };
 
-onMounted(() => {
-    window.addEventListener('keydown', handleKey);
-    updateBoardCache(); // 初始地圖快取
+onMounted(() => { 
+    window.addEventListener('keydown', handleKey); 
+    window.addEventListener('keyup', handleKeyUp);
+    updateBoardCache(); 
 });
-onUnmounted(() => {
-    window.removeEventListener('keydown', handleKey);
-    stopGame();
+onUnmounted(() => { 
+    window.removeEventListener('keydown', handleKey); 
+    window.removeEventListener('keyup', handleKeyUp);
+    stopGame(); 
 });
 </script>
 
@@ -393,85 +381,71 @@ onUnmounted(() => {
     </div>
 
     <div class="game-container">
-        <div class="game-board pixel-grass">
-            <!-- 🟢 效能優化：Template 改為直接從 boardCache 陣列讀取靜態字串，完美達到 O(1) 極速渲染 -->
+        <div class="game-board neon-black-board" :class="{ 'neon-black-board-boosting': isBoosting }">
             <div v-for="(type, idx) in boardCache" :key="idx" class="cell">
-              <!-- 1. 蛇頭 -->
               <div v-if="type.startsWith('HEAD_')" 
                    class="frog-head" 
                    :class="'frog-dir-' + type.split('_')[1].toLowerCase()">
                 🐸
               </div>
 
-              <!-- 2. 蛇尾 -->
-              <svg v-else-if="type.startsWith('TAIL_')" 
-                   class="svg-node" 
-                   :class="'dir-' + type.split('_')[1].toLowerCase()"
-                   viewBox="0 0 20 20">
-                <polygon points="10,19 1.5,1 18.5,1" class="svg-tail" />
-              </svg>
+              <div v-else-if="type.startsWith('TAIL_')" 
+                   class="snake-body-circle"
+                   :class="{ 'snake-body-boosting': isBoosting }"
+                   :style="{ opacity: getBodyOpacity(type) }">
+              </div>
 
-              <!-- 3. 標準正方形身體 -->
-              <div v-else-if="type === 'BODY'" class="snake-body"></div>
+              <div v-else-if="type.startsWith('BODY_')" 
+                   class="snake-body-circle"
+                   :class="{ 'snake-body-boosting': isBoosting }"
+                   :style="{ opacity: getBodyOpacity(type) }">
+              </div>
 
-              <!-- 4. 食物 -->
               <div v-else-if="type === 'FOOD'" class="food-emoji">🍎</div>
 
-              <!-- 5. 炸彈 💣 -->
               <div v-else-if="type === 'BOMB'" class="bomb-emoji">💣</div>
             </div>
 
-            <!-- 狀態遮罩面板：包含【未開始】與【暫停】 -->
             <div v-if="gameState === 'NOT_STARTED' || gameState === 'PAUSED'" class="game-overlay-panel">
               <div class="overlay-title">
                 {{ gameState === 'NOT_STARTED' ? '準備好了嗎？' : '遊戲暫停' }}
               </div>
-              
               <div class="btn-group-vertical">
                 <button class="start-btn" @click="startGame">
                   {{ gameState === 'PAUSED' ? '重新開始' : '開始遊戲' }}
                 </button>
                 <button class="rules-btn" @click="showRules = true">遊戲玩法</button>
               </div>
-
               <div class="pause-hint-text">
                 [ 按下 <span class="key-highlight">Space</span> 或 <span class="key-highlight">Enter</span> 即可開始遊戲 ]
               </div>
             </div>
 
-            <!-- 狀態遮罩面板：【遊戲結束頁面】 -->
             <div v-else-if="gameState === 'GAME_OVER'" class="game-overlay-panel game-over-bg">
               <div class="overlay-title game-over-title">💥 遊戲結束 💥</div>
-              
               <div class="final-score-box">
                 <div class="final-label">最終得分</div>
                 <div class="final-value">{{ score }}</div>
               </div>
-
               <div class="btn-group-vertical">
                 <button class="start-btn restart-theme" @click="startGame">再試一次</button>
                 <button class="rules-btn" @click="showRules = true">遊戲玩法</button>
               </div>
-
               <div class="pause-hint-text">
                 [ 按下 <span class="key-highlight">Space</span> 或 <span class="key-highlight">Enter</span> 可重新開始 ]
               </div>
             </div>
 
-            <!-- 6. 遊戲完全通關勝利頁面 -->
             <div v-else-if="gameState === 'VICTORY'" class="game-overlay-panel victory-bg">
               <div class="overlay-title victory-title">👑 恭喜完美通關 👑</div>
-              
               <div class="final-score-box victory-score-box">
                 <div class="final-label" style="color: #6d4c41;">最高紀錄</div>
                 <div class="final-value" style="color: #b71c1c;">{{ score }}</div>
               </div>
-
               <div class="btn-group-vertical">
                 <button class="start-btn victory-btn" @click="startGame">再挑戰一次</button>
                 <button class="rules-btn" @click="showRules = true">遊戲玩法</button>
               </div>
-
               <div class="pause-hint-text" style="color: #5d4037;">
                 [ 按下 <span class="key-highlight" style="color: #b71c1c;">Space</span> 或 <span class="key-highlight" style="color: #b71c1c;">Enter</span> 重新開啟遊戲 ]
               </div>
@@ -479,22 +453,22 @@ onUnmounted(() => {
         </div>
     </div>
 
-    <!-- 遊戲玩法說明書頁面 -->
     <div v-if="showRules" class="modal-overlay" @click.self="showRules = false">
       <div class="modal-content">
         <h2>🎮 遊戲玩法說明</h2>
         <hr />
         <ul class="rules-list">
           <li><strong>遊戲開始：</strong> 在未開始、暫停或遊戲結束畫面，按 <strong>Space 鍵</strong> 或 <strong>Enter 鍵</strong> 可直接開始遊玩！</li>
-          <li><strong>關閉說明：</strong> 隨時按下鍵盤上的 <strong>Esc 鍵</strong> 即可快速關閉本說明書。</li>
+          <li><strong>關閉說明：</strong> 隨時按下盤上的 <strong>Esc 鍵</strong> 即可快速關閉本說明書。</li>
           <li><strong>暫停功能：</strong> 遊戲進行中，隨時按下 <strong>Enter 鍵</strong> 即可暫停遊戲。</li>
-          <li><strong>方向鍵：</strong> 控制蛇前進的方向。</li>
-          <li><strong>空白鍵：</strong> 遊戲進行中按下可施展特殊技能。讓蛇頭與蛇尾<strong>「對調位置」</strong>並逆向移動。</li>
+          <li><strong>方向鍵控制：</strong> 控制蛇前進的方向。</li>
+          <li><strong>⚡ 按住/狂連點同方向鍵加速：</strong> 長按目前移動方向鍵會進入高速衝刺狀態（最快被鎖定在 60ms 限制內）；<strong>放開即恢復常速</strong>。在前進的大直線上，狂按同方向鍵，蛇頭會同步瘋狂往前突進！</li>
+          <li><strong>空白鍵技能：</strong> 遊戲進行中按下可施展特殊技能。讓蛇頭與蛇尾<strong>「對調位置」</strong>並逆向移動。</li>
           <li><strong>吃到蘋果🍎：</strong> 得分 +10，且身體長度增加 1 節。</li>
-          <li><strong>動態難度：</strong> 一開始場上會有 <strong>5 顆蘋果</strong>，隨著蛇的身軀變長（每生長 30 節減少一顆），蘋果會漸漸減少，最後將只剩 <strong>1 顆</strong>。</li>
-          <li><strong>危險炸彈💣：</strong> 一開始場上會有 <strong>3 顆炸彈</strong>，每生長 60 節會減少一顆。每吃 3 顆蘋果會有一顆炸彈重新定位，且絕對不會出現在蛇頭周圍 5x5 的範圍內。當分數到達 <strong>2500 分</strong> 時，炸彈完全消失！</li>
-          <li><strong>自動加速：</strong> 蛇的長度每增加 <strong>10 節</strong>，移動速度就會自動加快一次。</li>
-          <li><strong>失敗條件：</strong> 踩到地圖上的炸彈💣、撞到活動範圍四周的牆壁，或者蛇頭撞到自己的身體。</li>
+          <li><strong>動態難度：</strong> 一開始場上會 5 顆蘋果，隨著長度每長 30 節少一顆，最後剩 1 顆。</li>
+          <li><strong>危險炸彈💣：</strong> 一開始場上會有 3 顆炸彈，每長 60 節少一顆。每吃 3 顆蘋果重新定位，且絕對不會出現在蛇頭周圍 5x5 的範圍內。當分數到達 2500 分時，炸彈完全消失！</li>
+          <li><strong>自動加速：</strong> 蛇的長度每增加 10 節，移動速度就會自動加快一次。</li>
+          <li><strong>失敗條件：</strong> 踩到地圖上的炸彈💣、撞到牆壁，或者蛇頭撞到自己的身體。</li>
           <li><strong>完美通關：</strong> 當蛇的身軀填滿整個遊戲畫面（共 400 節），即達成完美通關！</li>
         </ul>
         <button class="close-btn" @click="showRules = false">我知道了</button>
@@ -523,12 +497,28 @@ onUnmounted(() => {
 .game-container { display: flex; flex-direction: column; align-items: center; }
 
 .game-board {
-  display: grid; grid-template-columns: repeat(20, var(--custom-cell-size)); grid-template-rows: repeat(20, var(--custom-cell-size)); width: var(--board-total-size); height: var(--board-total-size); border: none; position: relative; 
+  display: grid; 
+  grid-template-columns: repeat(20, var(--custom-cell-size)); 
+  grid-template-rows: repeat(20, var(--custom-cell-size)); 
+  width: var(--board-total-size); 
+  height: var(--board-total-size); 
+  border: none; 
+  position: relative; 
 }
-.pixel-grass { background-image: repeating-conic-gradient(#aad751 0% 25%, #a2d149 0% 50%); background-size: calc(var(--custom-cell-size) * 2) calc(var(--custom-cell-size) * 2); }
-.cell { width: var(--custom-cell-size); height: var(--custom-cell-size); display: flex; justify-content: center; align-items: center; }
 
-.game-overlay-panel { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(30, 30, 30, 0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 50; color: white; text-align: center; }
+.neon-black-board { 
+  background-color: #000000; 
+  box-shadow: 0 0 25px rgba(57, 255, 20, 0.2); 
+  transition: box-shadow 0.2s ease;
+}
+
+.neon-black-board-boosting {
+  box-shadow: 0 0 35px rgba(57, 255, 20, 0.6), inset 0 0 15px rgba(57, 255, 20, 0.2);
+}
+
+.cell { width: var(--custom-cell-size); height: var(--custom-cell-size); display: flex; justify-content: center; align-items: center; position: relative; }
+
+.game-overlay-panel { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(30, 30, 30, 0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200; color: white; text-align: center; }
 .game-over-bg { background-color: rgba(25, 15, 15, 0.92); }
 
 .victory-bg { background-color: rgba(255, 215, 0, 0.94); color: #5d4037; }
@@ -566,11 +556,31 @@ onUnmounted(() => {
 .key-highlight { color: #ffb74d; font-weight: bold; }
 
 /* ==========================================
-   蛇身與青蛙頭表情符號樣式區
+   蛇身與青蛙頭：完美網格霓虹融合版
    ========================================== */
-.snake-body { 
-  width: 100%; height: 100%; background-color: #468700; 
-  box-shadow: inset 0 0 0 calc(var(--custom-cell-size) * 0.08) #222222; 
+.snake-body-circle { 
+  width: 112%; 
+  height: 112%; 
+  background-color: #39ff14; 
+  border-radius: 50%;        
+  box-shadow: 0 0 10px #39ff14, 0 0 20px rgba(57, 255, 20, 0.5); 
+  transition: opacity 0.15s ease-in-out;
+  animation: snake-pulse 2.2s infinite ease-in-out; 
+}
+
+.snake-body-boosting {
+  animation: snake-pulse-fast 0.5s infinite ease-in-out !important;
+  box-shadow: 0 0 14px #39ff14, 0 0 25px #39ff14 !important;
+}
+
+@keyframes snake-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.96); }
+}
+
+@keyframes snake-pulse-fast {
+  0%, 100% { transform: scale(0.96); }
+  50% { transform: scale(0.90); }
 }
 
 .frog-head {
@@ -583,6 +593,14 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   position: relative; 
+  z-index: 50;
+  filter: drop-shadow(0 0 6px #39ff14) drop-shadow(0 0 12px rgba(57, 255, 20, 0.6));
+  transition: filter 0.2s ease;
+}
+
+/* ⚡ 蛇頭衝刺發光加強 */
+.neon-black-board-boosting .frog-head {
+  filter: drop-shadow(0 0 10px #39ff14) drop-shadow(0 0 20px #39ff14) drop-shadow(0 0 30px #ffffff);
 }
 
 /* 蛇舌頭 */
@@ -606,38 +624,29 @@ onUnmounted(() => {
   100% { height: 9px; bottom: -6px; }
 }
 
-/* 基礎四向旋轉 */
-.svg-node { display: block; overflow: visible; }
-.dir-up    { transform: rotate(0deg); }
-.dir-down  { transform: rotate(180deg); }
-.dir-left  { transform: rotate(-90deg); }
-.dir-right { transform: rotate(90deg); }
-
 /* 青蛙頭專用旋轉與上移複合樣式 */
 .frog-dir-up    { transform: rotate(180deg) translateY(calc(var(--custom-cell-size) * -0.10)); }
 .frog-dir-down  { transform: rotate(0deg) translateY(calc(var(--custom-cell-size) * -0.10)); }
 .frog-dir-left  { transform: rotate(90deg) translateY(calc(var(--custom-cell-size) * -0.10)); }
 .frog-dir-right { transform: rotate(-90deg) translateY(calc(var(--custom-cell-size) * -0.10)); }
 
-/* 蛇尾巴 */
-.svg-tail { 
-  fill: #396b02; 
-  stroke: #222222; 
-  stroke-width: 2.4; 
-  stroke-linejoin: round; 
-  paint-order: stroke fill;
+/* ==========================================
+   食物、炸彈發光特效區 (精確貼合 Emoji 輪廓)
+   ========================================== */
+.food-emoji { 
+  font-size: calc(var(--custom-cell-size) * 0.7); 
+  line-height: 1;
+  user-select: none;
+  filter: drop-shadow(0 0 6px #ff2222) drop-shadow(0 0 12px #ff2222);
 }
 
-/* 食物、炸彈與說明書 */
-.food-emoji, .bomb-emoji { 
+.bomb-emoji { 
   font-size: calc(var(--custom-cell-size) * 0.7); 
-  line-height: 1; 
-  user-select: none; 
-  display: flex; 
-  justify-content: center; 
-  align-items: center; 
-  filter: drop-shadow(0px 2px 2px rgba(0,0,0,0.15)); 
+  line-height: 1;
+  user-select: none;
+  filter: drop-shadow(0 0 6px #00ffff) drop-shadow(0 0 10px #9400d3);
 }
+
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.55); display: flex; justify-content: center; align-items: center; z-index: 999; }
 .modal-content { background-color: #ffffff; padding: 35px 40px; border-radius: 12px; width: 700px; max-width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.3); text-align: left; }
 .modal-content h2 { margin-top: 0; color: #2e7d32; font-size: 1.8rem; text-align: center; }
